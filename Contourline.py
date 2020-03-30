@@ -468,7 +468,7 @@ for i in range(1, 5):
 
 # Il condice commentato che segue genera le curve di livello
 
-"""
+
 mappa = incrementResolution(ono)
 mappa = incrementResolution(mappa)
 
@@ -497,7 +497,7 @@ for i in range(0, 50):
 matshow(visualizza)
 
 show()
-"""
+
 
 
 def draw3d(m):
@@ -511,4 +511,4 @@ def draw3d(m):
 	f.write("endsolid 3d\n")
 	f.close()
 
-draw3d(ono)
+#draw3d(ono)
