@@ -1,6 +1,9 @@
+import pylab
+from pylab import *
+from struct import unpack, calcsize
+import datetime
 
-
-
+time_start = datetime.datetime.now()
 
 def writeTrianglePatch(p1, p2, p3, resolution, destination):
 	if resolution > 1:
@@ -25,8 +28,6 @@ def writeTrianglePatch(p1, p2, p3, resolution, destination):
 		destination.write("            vertex %f %f %f\n"%(p3[0], p3[1], p3[2]/100.0))
 		destination.write("        endloop\n")
 
-
-
 def writeSquarePatch(p1, p2, p3, p4, resolution, destination):
 	pm = [0, 0, 0, 0]
 
@@ -37,9 +38,6 @@ def writeSquarePatch(p1, p2, p3, p4, resolution, destination):
 	writeTrianglePatch(p2, p3, pm, resolution, destination)
 	writeTrianglePatch(p3, p4, pm, resolution, destination)
 	writeTrianglePatch(p4, p1, pm, resolution, destination)
-
-
-
 
 
 """
@@ -74,9 +72,6 @@ Angolo in alto a sinistra:
 
 
 """
-import pylab
-from pylab import *
-from struct import unpack, calcsize
 
 
 f = open("N46E010.hgt", "rb")
@@ -86,20 +81,29 @@ for r in range(0, 1201):
     rm = []
     for c in range(0, 1201):
         (v, ) = unpack(">h", row[ c*calcsize(">h"): c*calcsize(">h") + calcsize(">h")])
-        rm.append(v)
+        rm.append(100 if v<0 else v)
+
     m.append(rm)
 
-ono = []
+matrice_sorgente = m
+
+#ono = []
 ono400 = []
 ono450 = []
 ono500 = []
 
-
+# Nella matrice inserisco una cornice di tutti 0
 def inserisciCornice(m):
+	w = len(m[0])-1
+	h = len(m) - 1
 	for i in range(0, len(m)):
-		for j in range(0, len(m[0])):
-			if i == 0 or i == (len(m)-1) or j == 0 or j == (len(m[0])-1):
-				m[i][j] = 0
+		m[i][0] = 0
+		m[i][w] = 0
+
+	for j in range(0, len(m[0])):
+		m[0][j] = 0
+		m[h][j] = 0
+
 
 def estraiQuota(m, quota):
 	matrice = []
@@ -114,11 +118,15 @@ def estraiQuota(m, quota):
 	return matrice
 
 
+def get_sub_map(m, istart, jstart, hoffset, voffset):
+        result = []
+        for i in range(0, hoffset):
+                result.append([])
+                for j in range(0, voffset):
+                        result[i].append(m[istart + i][jstart + j])
+        return(result)
 
-for row in range(0, 87):
-	ono.append([])
-	for column in range(0, 187):
-		ono[row].append(m[1089+row][264+column])
+
 
 """
 
@@ -159,18 +167,8 @@ for i in range(0, 1201):
         m[i][j] = (m[i][j] + 32767) / 32767.0
 """
 
-
-for i in range(0, 1201):
-	for j in range(0, 1201):
-		if m[i][j] < 0:
-			m[i][j] = 100
-
-
-
-
+# Seguono alcune matrici campione (test case), da utilizzare per testare l'algoritmo che trova il contorno di un'immagine
 mk = m
-
-
 
 m = [\
 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\
@@ -218,6 +216,7 @@ m3 = [\
 [0, 0, 2, 2, 2, 0, 0, 0, 3, 3, 3, 3, 0],\
 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
 
+# Non ricordo il motivo, ma questo e' un caso infame
 bastardo = [\
 [1, 0, 0, 0, 0, 0, 0, 0],\
 [1, 0, 0, 0, 0, 1, 0, 0],\
@@ -228,19 +227,22 @@ bastardo = [\
 
 singolopixel = [[0,0,0,0], [0,1,0,0], [0,0,0,0]]
 
+# Produce il minimo tra due valori
 def min2v(v1, v2):
 	if v1 != -1:
 		if v1 < v2 or v2 == -1:
 			return v1
 	return v2
 
-
+# Produce il minimo tra tre valori
 def min3v(v1, v2, v3):
 	vm = min2v(v1, v2)
 	result = min2v(vm, v3)
 	return result
 
 
+# Ho scoperto che due gruppi di pixel si congiungono, per cui aggiorno il valore rappresentante
+# uno dei due gruppi cosi' che formino un gruppo unico
 def updateGroupsId(dic, oldvalue, newvalue):
 	keys = dic.keys()
 
@@ -256,7 +258,7 @@ def findGroups(m):
 
 
 	"""
-	Questo dizionario, conterra' gli id dei gruppi. L'algoritmo scansione i pixel
+	Questo dizionario, conterra' gli id dei gruppi. L'algoritmo scansiona i pixel
 	da sinistra a destra, dall'alto in basso, quindi puo' generare id di gruppi di pixel
 	che in realta' si riferiscono allo stesso gruppo. L'indice del dizionario si ritrovera'
 	quindi nella bitmap, associato all'indice vi e' l'id di gruppo. A diversi indici
@@ -301,8 +303,6 @@ def findGroups(m):
 						else:
 							pnord = m[i-1][j]
 
-
-
 				if povest == 0:
 					povest = -1
 
@@ -335,14 +335,10 @@ def findGroups(m):
 					# ora consideravo disgiunti.
 					if povest > 0:
 						updateGroupsId(groupsid, povest, minp1p2p3)
-						#groupsid[povest] = minp1p2p3
 					if pnordovest > 0:
 						updateGroupsId(groupsid, pnordovest, minp1p2p3)
-						#groupsid[pnordovest] = minp1p2p3
 					if pnord > 0:
 						updateGroupsId(groupsid, pnord, minp1p2p3)
-						#groupsid[pnord] = minp1p2p3
-
 
 	for i in range(0, len(m)):
 		for j in range(0, len(m[0])):
@@ -372,16 +368,17 @@ def incrementResolution(m):
 	for i in range(0, rows-1):
 		for j in range(0, columns-1):
 			result[i*2][j*2] = m[i][j]
-			result[i*2][j*2+1] = (m[i][j] + m[i][j+1])/2
+			result[i*2][j*2+1] = (m[i][j] + m[i][j+1]) / 2.0
+			result[i*2][j*2+2] = m[i][j+1]
 
-			result[i*2+1][j*2] = (m[i][j] + m[i+1][j])/2
-			result[i*2+1][j*2+1] = (m[i][j] + m[i][j+1] + m[i+1][j] + m[i+1][j+1]) / 4
+			result[i*2+1][j*2] = (m[i][j] + m[i+1][j]) / 2.0
+			result[i*2+1][j*2+1] = (m[i][j] + m[i][j+1] + m[i+1][j] + m[i+1][j+1]) / 4.0
+			result[i*2+1][j*2+2] = (m[i][j+1] + m[i+1][j+1]) / 2.0
 
 			result[i*2+2][j*2] = m[i+1][j]
-			result[i*2+2][j*2+1] = (m[i+1][j] + m[i+1][j+1])/2
+			result[i*2+2][j*2+1] = (m[i+1][j] + m[i+1][j] ) / 2.0
+			result[i*2+2][j*2+2] = (m[i+1][j+1])
 	return result
-
-
 
 #Trova il punto di partenza (First Step) dell'algoritmo
 def getFirstStep(raster, groupid):
@@ -415,6 +412,8 @@ def nextAround(v):
 	elif v == (-1, 1):
 		return(-1, 0)
 
+
+
 def getNextSteps(step, backstep, raster, groupid):
 	v = (backstep[0] - step[0], backstep[1] - step[1])
 
@@ -428,6 +427,49 @@ def getNextSteps(step, backstep, raster, groupid):
 			v = na
 
 	return(None, None) # Per premessa non si deve arrivare a questa condizione
+
+def getCurrentAround(v1, v2):
+	if v1 < 0:
+		if v2 > 0:
+			return(0)
+		elif v2 < 0:
+			return(2)
+		else:
+			return(1)
+	elif v1 > 0:
+		if v2 > 0:
+			return(6)
+		elif v2 < 0:
+			return(4)
+		else:
+			return(5)
+	else:
+		if v2 < 0:
+			return(3)
+		else:
+			return(7)
+
+nextAroundo = [(-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1) ]
+
+
+def getNextSteps2(step, backstep, raster, groupid):
+	v = (backstep[0] - step[0], backstep[1] - step[1])
+	l = getCurrentAround(v[0], v[1])
+
+	for i in range(l, 16):
+		na = nextAroundo[i+1]
+
+		if (raster[step[0] + na[0]][step[1] + na[1]] == groupid):
+			return((step[0] + na[0], step[1] + na[1]), (step[0] + v[0], step[1] + v[1]))
+		else:
+			v = na
+
+	return(None, None) # Per premessa non si deve arrivare a questa condizione
+
+
+
+
+
 
 def getIncomingDirection(step, backstep):
 	#print (step[0] - backstep[0], step[1] - backstep[1])
@@ -458,48 +500,23 @@ def getContour(m, groupid):
 	return listpoints
 
 
+def compute_contour_line(mappa, visualizza, altitude_begin=400, altitude_offset=2500, countour_line_distance = 50):
 
-"""
-for i in range(1, 5):
-	listpoints = getContour(m, i)
-	for e in listpoints:
-		visualizza[e[0]][e[1]] = 1"""
+    for i in range(0, altitude_offset / countour_line_distance):
+        rasterlivello = estraiQuota(mappa, altitude_begin+countour_line_distance*i)
 
+        inserisciCornice(rasterlivello)
+        gruppi = findGroups(rasterlivello)
 
-# Il condice commentato che segue genera le curve di livello
+        for j in range(2, gruppi):
+	        contour = getContour(rasterlivello, j)
+	        for e in contour:
+		        visualizza[e[0]][e[1]] = 1
 
-
-mappa = incrementResolution(ono)
-mappa = incrementResolution(mappa)
-
-visualizza = getMatrix(len(mappa), len(mappa[0]))
-
-for i in range(0, 50):
-	rasterlivello = estraiQuota(mappa, 400+50*i)
+        print "%f%% completato"%(((i+1.0)/ (altitude_offset / countour_line_distance))*100)
 
 
-	inserisciCornice(rasterlivello)
-	gruppi = findGroups(rasterlivello)
-
-	#matshow(rasterlivello)
-
-
-	for j in range(2, gruppi):
-		contour = getContour(rasterlivello, j)
-		for e in contour:
-			visualizza[e[0]][e[1]] = 1
-
-	print "%f%% completato"%(((i+1)/20.0)*100)
-
-
-
-
-matshow(visualizza)
-
-show()
-
-
-
+# Genera un file da dare in pasto ad un programma di modellazione
 def draw3d(m):
 	f = file("./mappa.stl", "w")
 	f.write("solid 3d\n")
@@ -507,8 +524,26 @@ def draw3d(m):
 		for j in range(0, len(m[0])-1):
 			writeSquarePatch([j, i+1, m[i+1][j]], [j+1, i+1, m[i+1][j+1]], [j+1, i, m[i][j+1]], [j, i, m[i][j]], 1, f)
 
-
 	f.write("endsolid 3d\n")
 	f.close()
 
 #draw3d(ono)
+
+
+ono = get_sub_map(mk, 1089, 264, 50, 50)
+mappa = incrementResolution(ono)
+mappa = incrementResolution(mappa)
+mappa = incrementResolution(mappa)
+mappa = incrementResolution(mappa)
+
+
+visualizza = getMatrix(len(mappa), len(mappa[0]))
+compute_contour_line(mappa, visualizza)
+
+time_end = datetime.datetime.now()
+
+print("Programma eseguito in: ")
+print((time_end - time_start).total_seconds())
+
+matshow(visualizza)
+show()
