@@ -500,20 +500,78 @@ def getContour(m, groupid):
 	return listpoints
 
 
-def compute_contour_line(mappa, visualizza, altitude_begin=400, altitude_offset=2500, countour_line_distance = 50):
+def is_on_the_border(p, hl, vl):
+	if p[0] == 1 or p[1] == 1 or p[0] == hl or p[1] == vl:
+		return True
+	else:
+		return False
+
+
+c1 = [(2,2)]
+c2 = [(2,2), (3,3)]
+c3 = [(1,1)]
+c4 = [(1,1), (2,1)]
+c5 = [(2,2), (3,3), (4, 4)]
+c6 = [(1,1), (2,1), (1, 3)]
+c7 = [(3,3), (1,1), (2,1), (1, 3), (4, 4)]
+c8 = [(3,3), (5, 5), (1,1), (2,1), (1, 3), (4, 4)]
+c9 = [(3,3), (5, 5), (1,1), (2,1), (1, 3), (4, 4), (8, 8)]
+
+test_cases = [c1, c2, c3, c4, c5, c6, c7, c8, c9];
+
+
+def find_first_no_border(contour, i, hl, vl):
+	for j in range(i, len(contour)):
+		if is_on_the_border(contour[j], hl, vl):
+			pass
+		else:
+			return j
+	return None
+
+def find_last_no_border(contour, i, hl, vl):
+	for j in range(i, len(contour)):
+		if is_on_the_border(contour[j], hl, vl):
+			return(j-1)
+
+	return len(contour) - 1
+
+def no_border_subset_indeces(contour, hl, vl):
+	result = []
+	stop = False
+
+	i = 0
+	while not stop:
+		nb1 = find_first_no_border(contour, i, hl, vl)
+		if nb1 != None:
+			nb2 = find_last_no_border(contour, nb1, hl, vl)
+			result.append((nb1, nb2))
+			i = nb2+1
+		else:
+			stop = True
+
+	return result
+
+
+
+def compute_contour_line(mappa, visualizza, altitude_begin=400, altitude_offset=2500, countour_line_distance = 50, preview=True):
 
     for i in range(0, altitude_offset / countour_line_distance):
-        rasterlivello = estraiQuota(mappa, altitude_begin+countour_line_distance*i)
+		rasterlivello = estraiQuota(mappa, altitude_begin+countour_line_distance*i)
+		inserisciCornice(rasterlivello)
+		gruppi = findGroups(rasterlivello)
+		hl = len(mappa[0]) - 2
+		vl = len(mappa) - 2
 
-        inserisciCornice(rasterlivello)
-        gruppi = findGroups(rasterlivello)
+		for j in range(2, gruppi):
+			contour = getContour(rasterlivello, j)
+			if preview == True:
+				subsets = no_border_subset_indeces(contour, hl, vl)
 
-        for j in range(2, gruppi):
-	        contour = getContour(rasterlivello, j)
-	        for e in contour:
-		        visualizza[e[0]][e[1]] = 1
+				for subset in subsets:
+					for e in contour[subset[0]:subset[1]+1]:
+						visualizza[e[0]][e[1]] = 1
 
-        print "%f%% completato"%(((i+1.0)/ (altitude_offset / countour_line_distance))*100)
+		print "%f%% completato"%(((i+1.0)/ (altitude_offset / countour_line_distance))*100)
 
 
 # Genera un file da dare in pasto ad un programma di modellazione
@@ -535,8 +593,6 @@ mappa = incrementResolution(ono)
 mappa = incrementResolution(mappa)
 mappa = incrementResolution(mappa)
 mappa = incrementResolution(mappa)
-
-
 visualizza = getMatrix(len(mappa), len(mappa[0]))
 compute_contour_line(mappa, visualizza)
 
@@ -547,3 +603,9 @@ print((time_end - time_start).total_seconds())
 
 matshow(visualizza)
 show()
+
+
+if True == False:
+	for test in test_cases:
+		result = no_border_subset_indeces(test)
+		print(result)
