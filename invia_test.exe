@@ -1,0 +1,3 @@
+rm ./risultato.tar.gz
+tar -zcvf risultato.tar.gz risultato/
+scp ./risultato.tar.gz renderaccount@94.23.163.89:/home/renderaccount
